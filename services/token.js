@@ -1,0 +1,6 @@
+const { refreshAccessToken } = require('./meli');
+const { loadAuth, saveAuth } = require('./storage');
+async function ensureFreshAuth(authInput=null){let auth=authInput||await loadAuth();if(!auth?.access_token)throw new Error('Conta do Mercado Livre não conectada');const expiresSoon=!auth.expires_at||Date.now()>auth.expires_at-120000;if(!expiresSoon)return auth;if(!auth.refresh_token)throw new Error('Refresh token indisponível. Conecte a conta novamente.');const appId=process.env.MELI_APP_ID,clientSecret=process.env.MELI_CLIENT_SECRET;if(!appId||!clientSecret)throw new Error('Aplicativo do Mercado Livre não configurado');const tokens=await refreshAccessToken(auth.refresh_token,appId,clientSecret);auth={...auth,access_token:tokens.access_token,refresh_token:tokens.refresh_token||auth.refresh_token,expires_at:Date.now()+(tokens.expires_in*1000)};await saveAuth(auth);return auth}
+function sessionToAuth(s){if(!s?.access_token)return null;return{access_token:s.access_token,refresh_token:s.refresh_token,expires_at:s.expires_at,user:s.user||null}}
+function syncAuthToSession(a,s){if(!a||!s)return;s.access_token=a.access_token;s.refresh_token=a.refresh_token;s.expires_at=a.expires_at;s.user=a.user||s.user}
+module.exports={ensureFreshAuth,sessionToAuth,syncAuthToSession};
