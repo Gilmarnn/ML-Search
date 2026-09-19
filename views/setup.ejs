@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Configurar Meli Auto</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f5f6f8;font-family:Arial,sans-serif;color:#222}.wrap{max-width:720px;margin:45px auto;padding:20px}.card{background:#fff;border-radius:14px;padding:28px;box-shadow:0 8px 30px rgba(0,0,0,.08)}h1{margin-top:0;font-size:26px}.muted{color:#666;line-height:1.55}.field{margin:18px 0}label{display:block;font-weight:700;margin-bottom:7px}input{width:100%;padding:12px;border:1px solid #ccc;border-radius:8px;font-size:15px}.btn{border:0;background:#3483fa;color:#fff;padding:13px 18px;border-radius:8px;font-weight:700;cursor:pointer;width:100%}.alert{padding:12px;border-radius:8px;margin-bottom:16px}.error{background:#ffe6e6;color:#8b1a1a}.ok{background:#e7f7ec;color:#176b36}.note{font-size:13px;color:#555;margin-top:16px;line-height:1.55}.steps{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:15px;margin:18px 0}.steps b{display:block;margin-bottom:7px}.code{font-family:Consolas,monospace;background:#eef2f7;padding:2px 5px;border-radius:4px}
+  </style>
+</head>
+<body><div class="wrap"><div class="card">
+  <h1>Configurar Meli Auto</h1>
+  <p class="muted">O Meli Auto continua rodando no seu computador. O Client Secret e os tokens ficam locais. O Netlify será usado somente como uma pequena ponte HTTPS para o retorno do login do Mercado Livre.</p>
+  <% if (error) { %><div class="alert error"><%= error %></div><% } %>
+  <% if (message) { %><div class="alert ok"><%= message %></div><% } %>
+
+  <div class="steps">
+    <b>Antes de salvar</b>
+    1. Publique a pasta <span class="code">callback-netlify</span> no Netlify.<br>
+    2. Copie a URL HTTPS gerada, acrescentando <span class="code">/callback.html</span>.<br>
+    3. Cadastre essa mesma URL como Redirect URI no aplicativo do Mercado Livre.<br>
+    4. Cole exatamente a mesma URL abaixo.
+  </div>
+
+  <form method="post" action="/setup" autocomplete="off">
+    <div class="field"><label for="appId">App ID</label><input id="appId" name="appId" value="<%= appId %>" inputmode="numeric" required></div>
+    <div class="field"><label for="clientSecret">Client Secret</label><input id="clientSecret" name="clientSecret" type="password" required></div>
+    <div class="field"><label for="redirectUri">URL HTTPS de callback</label><input id="redirectUri" name="redirectUri" value="<%= redirectUri %>" placeholder="https://seu-site.netlify.app/callback.html" required></div>
+    <button class="btn" type="submit">Salvar configuração local</button>
+  </form>
+  <p class="note"><strong>Privacidade:</strong> o Client Secret nunca é enviado ao Netlify. A ponte recebe apenas o código temporário devolvido pelo Mercado Livre e redireciona o navegador para <span class="code">http://localhost:3000/auth/complete</span>.</p>
+</div></div></body></html>

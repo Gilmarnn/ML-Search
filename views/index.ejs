@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meli Auto – Diagnóstico de Anúncios</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-900">
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <header class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-8">
+    <div>
+      <h1 class="text-2xl font-bold">Meli Auto</h1>
+      <p class="text-gray-500 text-sm">Analisa a conta, sugere mudanças e só aplica com sua autorização.</p>
+    </div>
+    <% if (isAuthenticated) { %>
+      <div class="text-sm"><span class="text-gray-500">Conectado:</span> <strong><%= user?.nickname || user?.first_name || user?.id %></strong> · <a href="/auth/logout" class="text-red-600 hover:underline">Desconectar</a></div>
+    <% } %>
+  </header>
+
+  <% if (message) { %><div class="mb-6 p-4 bg-green-50 border border-green-200 text-green-800 rounded-lg text-sm"><%= message %></div><% } %>
+  <% if (error) { %><div class="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg text-sm"><%= error %></div><% } %>
+
+  <% if (!isAuthenticated) { %>
+    <section class="bg-white rounded-xl shadow-sm border p-8 text-center">
+      <h2 class="text-xl font-semibold mb-2">Conecte sua conta do Mercado Livre</h2>
+      <p class="text-gray-500 mb-6 text-sm">O Meli Auto primeiro analisa. Nenhuma alteração acontece sem uma aprovação sua.</p>
+      <div class="flex justify-center gap-3 flex-wrap">
+        <a href="/auth/login" class="bg-yellow-400 hover:bg-yellow-500 px-6 py-3 rounded-lg font-medium">Entrar com Mercado Livre</a>
+        <% if (hasSavedAuth) { %><a href="/auth/restore" class="border px-6 py-3 rounded-lg">Restaurar conexão salva</a><% } %>
+      </div>
+    </section>
+  <% } else { %>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <section class="lg:col-span-2 bg-white rounded-xl border shadow-sm p-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-semibold">Analisar conta</h2>
+            <p class="text-sm text-gray-500 mt-1">Varre os anúncios ativos, encontra candidatos e compara com anúncios semelhantes.</p>
+          </div>
+          <button onclick="analyzeAccount()" id="analyze-btn" class="bg-yellow-400 hover:bg-yellow-500 px-6 py-3 rounded-lg font-semibold">Analisar conta agora</button>
+        </div>
+        <div id="analysis-status" class="mt-4 text-sm"></div>
+      </section>
+
+      <section class="bg-white rounded-xl border shadow-sm p-6">
+        <h2 class="font-semibold">Regra principal</h2>
+        <p class="text-sm text-gray-500 mt-2">Encontrar → investigar → sugerir → <strong>pedir autorização</strong> → aplicar.</p>
+        <p class="text-xs text-red-600 mt-3"><strong>Preço:</strong> sem custo e tarifa configurados, a ferramenta não pode reduzir o valor.</p>
+      </section>
+    </div>
+
+    <details class="mt-6 bg-white rounded-xl border shadow-sm">
+      <summary class="cursor-pointer px-6 py-4 font-semibold">Configurações da análise e proteção de preço</summary>
+      <form method="POST" action="/config" class="p-6 pt-2 space-y-6">
+        <div>
+          <h3 class="font-semibold mb-3">Detecção de anúncios problemáticos</h3>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <label class="text-sm">Período analisado (dias)<input class="mt-1 w-full border rounded-lg px-3 py-2" type="number" name="lookbackDays" value="<%= config.lookbackDays %>" min="7"></label>
+            <label class="text-sm">Idade mínima (dias)<input class="mt-1 w-full border rounded-lg px-3 py-2" type="number" name="minAgeDays" value="<%= config.minAgeDays %>" min="0"></label>
+            <label class="text-sm">Poucas visitas até<input class="mt-1 w-full border rounded-lg px-3 py-2" type="number" name="lowVisits30" value="<%= config.lowVisits30 %>" min="0"></label>
+            <label class="text-sm">Muitas visitas a partir de<input class="mt-1 w-full border rounded-lg px-3 py-2" type="number" name="highVisits30" value="<%= config.highVisits30 %>" min="1"></label>
+            <label class="text-sm">Score mínimo (1–100)<input class="mt-1 w-full border rounded-lg px-3 py-2" type="number" name="minScore" value="<%= config.minScore %>" min="1" max="100"></label>
+            <label class="text-sm">Concorrentes por análise<input class="mt-1 w-full border rounded-lg px-3 py-2" type="number" name="competitorLimit" value="<%= config.competitorLimit %>" min="3" max="20"></label>
+            <label class="text-sm">Amostra mínima<input class="mt-1 w-full border rounded-lg px-3 py-2" type="number" name="competitorMinSample" value="<%= config.competitorMinSample || 4 %>" min="3" max="10"></label>
+          </div>
+        </div>
+
+        <div class="border-t pt-5">
+          <h3 class="font-semibold">Proteção financeira</h3>
+          <p class="text-xs text-gray-500 mb-3">O custo é cadastrado por anúncio nas recomendações. Os demais custos abaixo são globais e usados no piso de preço.</p>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <label class="text-sm">Tarifa ML (%)<input class="mt-1 w-full border rounded-lg px-3 py-2" type="number" step="0.01" name="marketplaceFeePct" value="<%= config.marketplaceFeePct %>"></label>
+            <label class="text-sm">Impostos (%)<input class="mt-1 w-full border rounded-lg px-3 py-2" type="number" step="0.01" name="taxPct" value="<%= config.taxPct %>"></label>
+            <label class="text-sm">Tarifa fixa (R$)<input class="mt-1 w-full border rounded-lg px-3 py-2" type="number" step="0.01" name="fixedFee" value="<%= config.fixedFee %>"></label>
+            <label class="text-sm">Embalagem (R$)<input class="mt-1 w-full border rounded-lg px-3 py-2" type="number" step="0.01" name="packagingCost" value="<%= config.packagingCost %>"></label>
+            <label class="text-sm">Margem mínima (%)<input class="mt-1 w-full border rounded-lg px-3 py-2" type="number" step="0.01" name="minMarginPct" value="<%= config.minMarginPct %>"></label>
+            <label class="text-sm">Queda máxima por vez (%)<input class="mt-1 w-full border rounded-lg px-3 py-2" type="number" step="0.01" name="maxPriceDropPct" value="<%= config.maxPriceDropPct %>" max="20"></label>
+          </div>
+        </div>
+
+        <div class="border-t pt-5">
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="scheduledAnalysis" <%= config.scheduledAnalysis ? 'checked' : '' %>> Analisar automaticamente no horário abaixo <strong>(nunca aplica mudanças sozinho)</strong></label>
+          <input class="mt-2 border rounded-lg px-3 py-2 text-sm" name="cronSchedule" value="<%= config.cronSchedule %>">
+        </div>
+        <button class="bg-gray-900 text-white px-5 py-2.5 rounded-lg text-sm">Salvar configurações</button>
+      </form>
+    </details>
+
+    <section class="mt-6">
+      <div class="flex items-center justify-between mb-3">
+        <div><h2 class="text-xl font-semibold">Recomendações</h2><p class="text-sm text-gray-500">Você decide mudança por mudança.</p></div>
+        <button onclick="loadRecommendations()" class="border rounded-lg px-4 py-2 text-sm">Atualizar lista</button>
+      </div>
+      <div id="recommendations" class="space-y-4"><div class="text-sm text-gray-500 bg-white border rounded-xl p-6">Carregando recomendações...</div></div>
+    </section>
+
+    <section class="mt-6 bg-white rounded-xl border p-6">
+      <div class="flex justify-between items-center"><h2 class="font-semibold">Histórico</h2><button onclick="loadHistory()" class="text-sm border rounded-lg px-3 py-2">Carregar histórico</button></div>
+      <div id="history" class="mt-3 text-sm text-gray-500"></div>
+    </section>
+  <% } %>
+</div>
+
+<script>
+const money = v => v == null ? '—' : Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const esc = v => String(v ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+
+async function analyzeAccount(){
+  const btn=document.getElementById('analyze-btn'), st=document.getElementById('analysis-status');
+  btn.disabled=true; btn.textContent='Analisando...'; st.innerHTML='<span class="text-gray-500">Varrendo anúncios, visitas, vendas recentes e mercado. Isso pode levar alguns minutos.</span>';
+  try{
+    const r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({maxItems:500})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.error||'Falha na análise');
+    st.innerHTML=`<span class="text-green-700 font-medium">${d.summary.scanned} anúncios varridos · ${d.summary.candidates} candidatos encontrados. Nenhuma alteração foi feita.</span>`;
+    renderRecommendations(d);
+  }catch(e){st.innerHTML=`<span class="text-red-600">${esc(e.message)}</span>`}finally{btn.disabled=false;btn.textContent='Analisar conta agora'}
+}
+
+async function loadRecommendations(){
+  try{const r=await fetch('/api/recommendations'); const d=await r.json(); if(!r.ok) throw new Error(d.error); renderRecommendations(d);}catch(e){document.getElementById('recommendations').innerHTML=`<div class="text-red-600">${esc(e.message)}</div>`}
+}
+
+function suggestionBlock(item,s){
+  const labels={title:'Título',description:'Descrição',price:'Preço',pictures:'Fotos'};
+  let editor='', action='';
+  if(s.type==='title'){
+    editor=`<div class="grid md:grid-cols-2 gap-3"><div><div class="text-xs text-gray-500 mb-1">Atual</div><div class="bg-gray-50 border rounded-lg p-3">${esc(s.before)}</div></div><div><div class="text-xs text-gray-500 mb-1">Proposto — editável</div><input id="edit-${item.id}-title" maxlength="60" class="w-full border rounded-lg p-3" value="${esc(s.after||'')}"></div></div>`;
+  }else if(s.type==='description'){
+    editor=`<div class="grid md:grid-cols-2 gap-3"><div><div class="text-xs text-gray-500 mb-1">Atual</div><div class="bg-gray-50 border rounded-lg p-3 whitespace-pre-wrap max-h-52 overflow-auto">${esc(s.before||'Sem descrição')}</div></div><div><div class="text-xs text-gray-500 mb-1">Proposto — editável</div><textarea id="edit-${item.id}-description" rows="8" class="w-full border rounded-lg p-3">${esc(s.after||'')}</textarea></div></div>`;
+  }else if(s.type==='price'){
+    editor=`<div class="grid grid-cols-2 gap-3"><div><span class="text-xs text-gray-500">Atual</span><br><strong>${money(s.before)}</strong></div><div><span class="text-xs text-gray-500">Proposto</span><br><strong>${money(s.after)}</strong>${s.floor?`<div class="text-xs text-gray-500">Piso seguro: ${money(s.floor)}</div>`:''}</div></div>`;
+  }else{
+    const pics=(s.pictures||[]).map(p=>`<img src="${esc(p.url)}" class="w-20 h-20 object-contain border rounded-lg bg-white" loading="lazy">`).join('');
+    editor=`<div><strong>${s.before} foto(s)</strong><div class="flex flex-wrap gap-2 mt-2">${pics}</div></div>`;
+  }
+  if(s.appliedAt) action='<span class="text-green-700 text-xs font-semibold">APLICADO</span>';
+  else if(s.approvable) action=`<button onclick="applySuggestion('${item.id}','${s.type}')" class="bg-yellow-400 hover:bg-yellow-500 px-4 py-2 rounded-lg text-sm font-semibold">Aprovar ${labels[s.type]}</button>`;
+  else if(s.type==='price'&&s.requiresCost) action=`<div class="flex gap-2 flex-wrap"><input id="cost-${item.id}" type="number" step="0.01" placeholder="Custo do produto" class="border rounded-lg px-3 py-2 text-sm w-40"><button onclick="saveCost('${item.id}')" class="border rounded-lg px-3 py-2 text-sm">Salvar custo</button></div>`;
+  else action='<span class="text-gray-400 text-xs">Somente diagnóstico</span>';
+  return `<div class="border rounded-xl p-4"><div class="flex justify-between gap-3 mb-2"><strong>${labels[s.type]||s.type}</strong>${action}</div>${editor}<p class="text-xs text-gray-500 mt-3">${esc(s.reason||'')}</p></div>`;
+}
+
+function renderRecommendations(data){
+  const el=document.getElementById('recommendations');
+  if(data.summary?.status==='running'){el.innerHTML='<div class="bg-white border rounded-xl p-6 text-sm">Nova análise em andamento. A lista anterior foi limpa.</div>';return}
+  if(!data.items?.length){el.innerHTML='<div class="bg-white border rounded-xl p-6 text-sm text-gray-500">Nenhuma recomendação encontrada com os filtros atuais.</div>';return}
+  el.innerHTML=data.items.map(item=>{
+    const m=item.market||{}, diff=m.differenceToMedianPct;
+    const market=m.count?`<div class="bg-gray-50 border rounded-xl p-4 mb-4">
+      <div class="font-semibold mb-2">Concorrência · ${m.count} anúncio(s)</div>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+        <div><span class="text-xs text-gray-500">Seu preço</span><br><strong>${money(item.metrics.price)}</strong></div>
+        <div><span class="text-xs text-gray-500">Menor</span><br><strong>${money(m.minPrice)}</strong></div>
+        <div><span class="text-xs text-gray-500">Mediana</span><br><strong>${money(m.medianPrice)}</strong></div>
+        <div><span class="text-xs text-gray-500">Média</span><br><strong>${money(m.averagePrice)}</strong></div>
+        <div><span class="text-xs text-gray-500">Maior</span><br><strong>${money(m.maxPrice)}</strong></div>
+      </div>
+      <div class="text-xs mt-2 ${diff>0?'text-red-600':'text-green-700'}">${diff==null?'':`Seu preço está ${Math.abs(diff).toFixed(1)}% ${diff>=0?'acima':'abaixo'} da mediana.`}</div>
+      <div class="text-xs text-gray-500 mt-1">Busca usada: “${esc(m.query)}” · camada ${m.searchLevel||1}. Tentativas: ${(m.attemptedQueries||[]).map(q=>'“'+esc(q)+'”').join(' → ')}</div>
+      <div class="mt-3 space-y-1">${(m.samples||[]).slice(0,5).map(x=>`<div class="text-xs"><a href="${esc(x.permalink||'#')}" target="_blank" class="underline">${esc(x.title)}</a> · <strong>${money(x.price)}</strong></div>`).join('')}</div>
+    </div>`:`<div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs">Amostra insuficiente mesmo após ampliar as palavras-chave. Buscas tentadas: ${(m.attemptedQueries||[]).map(q=>'“'+esc(q)+'”').join(' → ')||'—'}.</div>`;
+    return `<article class="bg-white border rounded-xl shadow-sm p-5">
+      <div class="flex flex-col md:flex-row justify-between gap-3 mb-4"><div><h3 class="font-semibold">${esc(item.title)}</h3><div class="text-xs text-gray-500">${esc(item.id)}</div></div><div class="text-right"><div class="text-xs text-gray-500">Score</div><div class="text-xl font-bold">${item.score}/100</div></div></div>
+      <div class="mb-4"><span class="inline-block bg-red-50 text-red-700 px-2 py-1 rounded text-xs font-semibold">${esc(item.diagnosis)}</span><span class="text-xs text-gray-500 ml-2">Entrou porque combina idade, estoque, visitas e vendas recentes.</span></div>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm mb-4">
+        <div><span class="text-xs text-gray-500">Visitas</span><br><strong>${item.metrics.visits30}</strong></div><div><span class="text-xs text-gray-500">Vendas</span><br><strong>${item.metrics.sales30}</strong></div><div><span class="text-xs text-gray-500">Estoque</span><br><strong>${item.metrics.stock}</strong></div><div><span class="text-xs text-gray-500">Idade</span><br><strong>${item.metrics.ageDays} dias</strong></div><div><span class="text-xs text-gray-500">Preço</span><br><strong>${money(item.metrics.price)}</strong></div>
+      </div>${market}<div class="space-y-3">${item.suggestions.map(x=>suggestionBlock(item,x)).join('')}</div></article>`;
+  }).join('');
+}
+
+async function applySuggestion(itemId,type){
+  let after;
+  if(type==='title'||type==='description'){after=document.getElementById(`edit-${itemId}-${type}`)?.value;}
+  if(!confirm(`Aplicar esta alteração de ${type} no anúncio real?`))return;
+  try{const r=await fetch(`/api/recommendations/${itemId}/apply`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,after})});const d=await r.json();if(!r.ok)throw new Error(d.error);alert('Alteração aplicada com sucesso.');loadRecommendations();}catch(e){alert(e.message)}
+}
+async function saveCost(itemId){
+  const v=Number(document.getElementById(`cost-${itemId}`).value); if(!(v>0)){alert('Informe um custo válido.');return}
+  try{const r=await fetch(`/api/costs/${itemId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cost:v})});const d=await r.json();if(!r.ok)throw new Error(d.error);alert(d.message);}catch(e){alert(e.message)}
+}
+async function loadHistory(){
+  try{const r=await fetch('/api/history?limit=100');const d=await r.json();document.getElementById('history').innerHTML=d.history?.length?d.history.map(h=>`<div class="border-b py-2"><span class="text-gray-400">${new Date(h.timestamp).toLocaleString('pt-BR')}</span> · <strong>${esc(h.action)}</strong> ${h.id?`· ${esc(h.id)}`:''} ${h.reason?`· ${esc(h.reason)}`:''}</div>`).join(''):'Sem histórico ainda.';}catch(e){document.getElementById('history').textContent=e.message}
+}
+<% if (isAuthenticated) { %>loadRecommendations();<% } %>
+</script>
+</body>
+</html>
