@@ -1,0 +1,25 @@
+MELI AUTO - WINDOWS (MODO LOCAL)
+
+Este projeto roda localmente. A única parte online é a página estática callback-netlify, usada como ponte HTTPS para o OAuth do Mercado Livre.
+
+1) Instalar dependências:
+   npm.cmd install
+
+2) Testar localmente:
+   npm.cmd start
+
+3) Acesse:
+   http://localhost:3000
+
+4) Na configuração, use a Redirect URI HTTPS publicada no Netlify, por exemplo:
+   https://seu-site.netlify.app/callback.html
+
+5) Cadastre EXATAMENTE essa mesma Redirect URI no aplicativo do Mercado Livre.
+
+6) Gerar o executável depois de validar o login:
+   npm.cmd run build:win
+
+Saída:
+   dist\Meli Auto.exe
+
+Os arquivos locais ficam em data/ e .env ao lado da aplicação/executável.

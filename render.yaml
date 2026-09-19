@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: meli-auto
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /private-login
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MELI_SITE_ID
+        value: MLB
+      - key: APP_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: MELI_APP_ID
+        sync: false
+      - key: MELI_CLIENT_SECRET
+        sync: false
+      - key: MELI_REDIRECT_URI
+        sync: false
+      - key: DATABASE_URL
+        sync: false

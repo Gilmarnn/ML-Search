@@ -1,0 +1,20 @@
+MELI AUTO v3 — GERAR E USAR O EXE
+
+IMPORTANTE:
+- Faça o build DENTRO da pasta v3 que já está funcionando e conectada.
+- O executável será criado em dist\Meli Auto.exe.
+- Ele continuará lendo o .env e a pasta data da pasta meli-auto.
+- Portanto App ID, Client Secret, callback Netlify, refresh token, custos,
+  regras e histórico permanecem os mesmos.
+- Ao abrir o .exe, o navegador abre sozinho.
+- Se houver refresh token válido, a conta do Mercado Livre é restaurada
+  automaticamente. O callback só será usado novamente se o ML exigir nova
+  autorização.
+
+GERAR:
+  npm.cmd run build:win
+
+ABRIR:
+  dist\Meli Auto.exe
+
+Não é necessário usar npm.cmd start depois que o .exe estiver criado.
